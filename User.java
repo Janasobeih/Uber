@@ -17,7 +17,7 @@ public class User
 
 enum UserType {
     CUSTOMER("customer"),
-    DRIVER("client");
+    DRIVER("driver");
 
     private final String value;
 

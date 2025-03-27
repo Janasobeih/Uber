@@ -10,30 +10,8 @@ public class Driver extends User
         super(username, password);
     }
 
-    public ArrayList<Ride> unreservedRides( ArrayList<Ride> rides)
-    {
-        ArrayList<Ride> availableRides=new ArrayList<>();
-        for(Ride ride : rides)
-        {
-            if(ride.getStatus().equals("unreserved"))
-            {
-                availableRides.add(ride);
-            }
-        }
 
-        System.out.println("Choose one of the rides to offer a fare");
-
-        for(int i=1;i<=availableRides.size();i++)
-        {
-            System.out.print(i);
-            availableRides.get(i).printRideDetails();
-        }
-
-        return availableRides;
-
-    }
-
-public void offerFare(Ride ride , float fare)
+public void offerFare(int rideID , float fare)
 {
     //write the logic of sending the fare to the user
 }

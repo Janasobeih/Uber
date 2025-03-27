@@ -1,6 +1,8 @@
 import java.util.ArrayList;
 import java.util.Scanner;
 
+ //implement multi-threading
+
 public class Main {
     public static void main(String[] args) {
         Scanner scanner = new Scanner(System.in);
@@ -115,7 +117,7 @@ public class Main {
 
         if (loggedInUser.userType == UserType.CUSTOMER) {
             boolean isRunning=true;
-            Ride ride = new Ride();
+            Ride requestedRide = new Ride();
             while(isRunning)
             {
                 System.out.println("1. Request a ride by entering a pickup location and destination. \n" +
@@ -128,15 +130,22 @@ public class Main {
                     String pickup =scanner.nextLine();
                     System.out.println("Destination Location :");
                     String destination =scanner.nextLine();
-                    ride = new Ride(pickup,destination, (Customer) loggedInUser);
-                    rides.add(ride);
-                    ride.requestRide(loggedInUser,pickup,destination,ride.availableDrivers(drivers));
+                    requestedRide = ((Customer) loggedInUser).requestRide(pickup,destination);
+
+                    //send it to the server
+                    //ha recieve men el server fares
+                    //then send the server the accepted fare
+                    //server ye3ml ride assignment
+                    //driver ye2dar ye update status
+
+                   // rides.add(ride);
 
                 }
 
                 else if(userInput==2)
                 {
-                    System.out.println(ride.getStatus());
+                    System.out.println(requestedRide.getStatus());
+                    //atlobha men el server
                 }
 
                 else
@@ -164,21 +173,14 @@ public class Main {
             int userInput = getValidInt(scanner);
             if(userInput==1)
             {
-                ArrayList<Ride> availableRides = new ArrayList<>(driver.unreservedRides(rides));
-                System.out.println("Choose of the available rides to offer a fare to : ");
-                for(int i=1;i<availableRides.size();i++)
-                {
-                    System.out.print(i);
-                    availableRides.get(i).printRideDetails();
-
-                }
+                //waiting for el available rides
                 System.out.println("Your preferable ride is : ");
                 int rideNumber=scanner.nextInt();
-                Ride chosenRide= availableRides.get(rideNumber + 1);
+                //Ride chosenRide= availableRides.get(rideNumber + 1);
                 System.out.println("Enter your preferred fee");
                 float fare= scanner.nextFloat();
-                driver.offerFare(chosenRide,fare);
-
+                //sned the server the chosen ride bel number beta3ha we el fare
+                driver.offerFare(rideNumber,fare);
 
             }
             else if (userInput==2)
@@ -186,6 +188,7 @@ public class Main {
                 System.out.println("Enter the new Status of your ride");
                 String updatedRideStatus= scanner.nextLine();
                 driver.updateRideStatus(/*accepted ride */ride,updatedRideStatus);
+                //should send to the server status so that lama el client ye request status tegelo men el server
             }
 
             else

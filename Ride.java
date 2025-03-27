@@ -1,6 +1,7 @@
 import java.util.ArrayList;
 
 public class Ride {
+    //int id;
     String pickup;
     String destination;
     String rideStatus;
@@ -12,7 +13,7 @@ public class Ride {
         this.pickup = pickup;
         this.destination = destination;
         this.customer = customer;
-        this.rideStatus="unreserved";
+        this.rideStatus="pending";
     }
     public Ride(){
         this.pickup = "";
@@ -29,26 +30,7 @@ public class Ride {
         this.rideStatus = rideStatus;
     }
 
-    public void requestRide(User loggedInUser, String pickup, String destination, ArrayList<Driver> availableDrivers) {
-        this.pickup = pickup;
-        this.destination = destination;
 
-        // Check if drivers are available
-        if (availableDrivers.isEmpty()) {
-            System.out.println("No drivers are currently available. Please try again later.");
-            return;
-        }
-
-        // Notify available drivers
-        System.out.println("Ride request from " + loggedInUser.username + ":");
-        System.out.println("Pickup: " + pickup);
-        System.out.println("Destination: " + destination);
-        System.out.println("Notifying available drivers...");
-
-        for (Driver driver : availableDrivers) {
-            System.out.println("Driver " + driver.username + " has been notified.");
-        }
-    }
 
     public void rideAssignment(Driver driver , Customer customer , String pickup , String destination)
     {
