@@ -41,7 +41,7 @@ public class Server {
         }
     }
 
-// Checks if a customer is in a locked ride or not
+    // Checks if a customer is in a locked ride or not
     public static boolean isCustomerInLockedRide(String username) {
         // Iterate through each locked ride entry in the map.
         for (Map.Entry<Driver, Integer> entry : driverLockedRide.entrySet()) {
@@ -56,7 +56,7 @@ public class Server {
         return false; // No locked ride found for this customer.
     }
 
-// Checks if there are any available drivers
+    // Checks if there are any available drivers
     public static boolean areAllDriversLocked(List<Driver> drivers, Map<Driver, Integer> lockedDriversMap) {
         for (Driver driver : drivers) {
             if (lockedDriversMap.getOrDefault(driver, 0) == 0) {
@@ -65,7 +65,7 @@ public class Server {
         }
         return true; // All drivers are locked
     }
-// Checks if a certain driver is locked or not in order to disconnect
+    // Checks if a certain driver is locked or not in order to disconnect
     public static boolean isDriverLocked(String username, Map<Driver, Integer> lockedDriversMap) {
         for (Driver driver : lockedDriversMap.keySet()) {
             if (driver.getUsername().equals(username) && lockedDriversMap.get(driver) == 1) {
@@ -254,7 +254,7 @@ public class Server {
             while (true) {
                 out.println("\nCustomer Menu:");
                 out.println("1. Request Ride");
-                out.println("2. View Ride Status");
+                out.println("2. View Rides Status");
                 out.println("3. View Offered Fares");
                 out.println("4. Accept an Offer");
                 out.println("5. Rate Driver");
@@ -324,8 +324,8 @@ public class Server {
                         break;
                     }
 
-                   else
-                   {
+                    else
+                    {
                         out.println("Couldn't disconnect as you're currently in a ride");
                         System.out.println("Driver " + currentUser.getUsername() + " couldn't disconnect as the driver is in a ride.");
                         continue;
@@ -351,7 +351,6 @@ public class Server {
                 }
             }
         }
-
         private void requestRide() throws IOException {
             out.println("Enter pickup location:");
             String pickupLocation = in.readLine();
@@ -363,39 +362,107 @@ public class Server {
             Ride ride = new Ride(customer, pickupLocation, destination, "Pending");
             rides.add(ride);
 
-
             out.println("Ride request submitted. Ride ID: " + ride.getId()
                     + " from " + pickupLocation + " to " + destination);
             System.out.println("Customer " + currentUser.getUsername() + " requested ride ID "
                     + ride.getId() + " from " + pickupLocation + " to " + destination);
 
-            //Checks if there are drivers that are not currently in a ride (available drivers)
-            boolean areAllDriversLocked= areAllDriversLocked( drivers, driverLockedRide);
+            // Check if there are any unlocked (free) drivers
+            boolean allLocked = areAllDriversLocked(drivers, driverLockedRide);
 
-            //Check is there registered drivers to accept the request
-            if (drivers.isEmpty())
-            {
-                out.println("There aren't any registered drivers yet , your request will be sent to them once available");
-            }
-
-            else if(!areAllDriversLocked)
-            {
+            if (drivers.isEmpty()) {
+                out.println("There aren't any registered drivers yet; your request will be queued.");
+            } else if (!allLocked) {
                 // Broadcast to all available drivers.
                 String broadcastMessage = "New Ride Requested! Ride ID: " + ride.getId()
                         + " | Pickup: " + pickupLocation
                         + " | Destination: " + destination;
-
-                //Notifies the drivers with the ride
                 broadcastToDrivers(broadcastMessage);
+            } else {
+                out.println("All drivers are currently busy; your request is queued until a driver is free.");
             }
 
+            // ---------------- WAITING STATE FOR OFFERS ----------------
+            out.println("You are now waiting for driver offers on ride ID " + ride.getId() + ".");
+            while (ride.getStatus().equalsIgnoreCase("Pending")) {
+                if (!ride.getOffers().isEmpty()) {
+                    // We'll handle the first offer in the list
+                    RideOffer firstOffer = ride.getOffers().get(0);
 
-            // There are drivers but they're all in rides
-            else
-            {
-                out.println("All drivers are currently working , your request will be sent to them once available ");
+                    out.println("You have an offer from driver " + firstOffer.getDriver().getUsername()
+                            + " for $" + firstOffer.getFare() + ".");
+                    out.println("Enter 1 to accept, or 2 to decline:");
+
+                    String input = in.readLine();
+                    if (input == null) continue;
+                    switch (input) {
+                        case "1":
+                            // Accept
+                            ride.setDriver(firstOffer.getDriver());
+                            ride.setStatus("Accepted");
+
+                            out.println("You accepted the offer from driver " + firstOffer.getDriver().getUsername() + ".");
+                            System.out.println("Customer " + currentUser.getUsername()
+                                    + " accepted the offer from driver " + firstOffer.getDriver().getUsername()
+                                    + " for ride ID " + ride.getId());
+
+                            // Notify the accepted driver
+                            for (ClientHandler handler : clientHandlers) {
+                                if (handler.currentUser != null &&
+                                        handler.currentUser.getUserType().equalsIgnoreCase("Driver") &&
+                                        handler.currentUser.getUsername().equalsIgnoreCase(firstOffer.getDriver().getUsername())) {
+                                    handler.out.println("Your fare offer for ride ID " + ride.getId() + " has been accepted by the customer.");
+                                }
+                            }
+
+                            // Free all other drivers who offered
+                            for (RideOffer off : ride.getOffers()) {
+                                if (!off.getDriver().getUsername().equalsIgnoreCase(firstOffer.getDriver().getUsername())) {
+                                    Server.driverLockedRide.remove(off.getDriver());
+                                    for (ClientHandler handler : clientHandlers) {
+                                        if (handler.currentUser != null &&
+                                                handler.currentUser.getUserType().equalsIgnoreCase("Driver") &&
+                                                handler.currentUser.getUsername().equalsIgnoreCase(off.getDriver().getUsername())) {
+                                            handler.out.println("Ride ID " + ride.getId() + " has been assigned to another driver.");
+                                        }
+                                    }
+                                }
+                            }
+                            // Clear all offers
+                            ride.getOffers().clear();
+
+                            // We exit the waiting loop (ride is accepted).
+                            break;
+
+                        case "2":
+                            // Decline the first offer
+                            ride.getOffers().remove(firstOffer);
+                            Server.driverLockedRide.remove(firstOffer.getDriver());
+                            out.println("You declined the offer from driver " + firstOffer.getDriver().getUsername()
+                                    + ". Still waiting for new offers...");
+                            break;
+
+                        default:
+                            out.println("Invalid input. Please enter 1 to accept or 2 to decline.");
+                            break;
+                    }
+                } else {
+                    // No offers yet
+                    out.println("No driver offers yet. Waiting...");
+                    try {
+                        Thread.sleep(3000);
+                    } catch (InterruptedException e) {
+                        // ignore
+                    }
+                }
             }
 
+            // If we exit the loop, the ride is no longer "Pending"
+            if (ride.getStatus().equalsIgnoreCase("Accepted")) {
+                out.println("Ride accepted successfully! Returning to main menu...");
+            } else {
+                out.println("Ride status changed to: " + ride.getStatus() + ". Returning to main menu...");
+            }
         }
 
         private void setDriverAvailability() throws IOException {
@@ -452,6 +519,7 @@ public class Server {
         // ----- Driver: Offer Fare -----
         private void offerFare() throws IOException {
             Driver thisDriver = (Driver) currentUser;
+
             // Check if this driver is already locked to a ride.
             if (Server.driverLockedRide.containsKey(thisDriver)) {
                 int lockedRideId = Server.driverLockedRide.get(thisDriver);
@@ -468,6 +536,7 @@ public class Server {
                 out.println("Invalid ride ID format.");
                 return;
             }
+
             // Find the ride.
             Ride targetRide = null;
             for (Ride ride : rides) {
@@ -476,14 +545,17 @@ public class Server {
                     break;
                 }
             }
+
             if (targetRide == null) {
                 out.println("Ride not found.");
                 return;
             }
+
             if (!targetRide.getStatus().equalsIgnoreCase("Pending")) {
                 out.println("Cannot offer fare on a ride that is not pending.");
                 return;
             }
+
             out.println("Enter your fare offer (e.g., 25.50):");
             double fare;
             try {
@@ -492,6 +564,7 @@ public class Server {
                 out.println("Invalid fare amount.");
                 return;
             }
+
             // Create a new offer.
             RideOffer offer = new RideOffer(thisDriver, fare);
             targetRide.getOffers().add(offer);
@@ -504,8 +577,39 @@ public class Server {
             // Notify the customer.
             notifyCustomer(targetRide.getCustomer().getUsername(),
                     "Driver " + thisDriver.getUsername() + " has offered $" + fare + " for your ride (ID " + targetRide.getId() + ").");
-        }
 
+            // ---------------- DRIVER WAITING STATE ----------------
+            while (true) {
+                // If the ride is accepted, notify and keep the driver locked.
+                if (targetRide.getStatus().equalsIgnoreCase("Accepted")) {
+                    out.println("Your fare offer has been accepted by the customer. You are now on a ride.");
+                    return; // Driver remains locked and exits to main menu.
+                }
+
+                // Check if this driver's offer is still present.
+                boolean foundOffer = false;
+                for (RideOffer off : targetRide.getOffers()) {
+                    if (off.getDriver().getUsername().equalsIgnoreCase(thisDriver.getUsername())) {
+                        foundOffer = true;
+                        break;
+                    }
+                }
+
+                // If the offer is missing, it was declined → unlock the driver.
+                if (!foundOffer) {
+                    out.println("Your fare offer was declined. You are now available for new offers.");
+                    Server.driverLockedRide.remove(thisDriver); // Unlock driver
+                    return; // Exit to main menu
+                }
+
+                // Wait before checking again
+                try {
+                    Thread.sleep(3000);
+                } catch (InterruptedException e) {
+                    // Ignore interruptions.
+                }
+            }
+        }
         // ----- Customer: View Offered Fares -----
         private void viewOfferedFares() throws IOException {
             out.println("Enter your ride ID to view offers:");
