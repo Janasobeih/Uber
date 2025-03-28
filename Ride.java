@@ -1,67 +1,56 @@
-import java.util.ArrayList;
+import java.util.*;
 
 public class Ride {
-    //int id;
-    String pickup;
-    String destination;
-    String rideStatus;
-    Driver driver;
-    Customer customer;
-    float rideFare;
+    private static int counter = 1;
+    private int id;
+    private Customer customer;
+    private String pickupLocation;
+    private String destination;
+    private String status;
+    private Driver driver;  // To store the accepted driver (if any)
+    private List<RideOffer> offers = new ArrayList<>(); // New list for fare offers
 
-    public Ride(String pickup, String destination, Customer customer) {
-        this.pickup = pickup;
-        this.destination = destination;
+    public Ride(Customer customer, String pickupLocation, String destination, String status) {
+        this.id = counter++;
         this.customer = customer;
-        this.rideStatus="pending";
-    }
-    public Ride(){
-        this.pickup = "";
-        this.destination = "";
-        this.customer = null;
-        this.rideStatus=null;
-    }
-    public String getStatus()
-    {
-        return rideStatus;
+        this.pickupLocation = pickupLocation;
+        this.destination = destination;
+        this.status = status;
     }
 
-    public void setRideStatus(String rideStatus) {
-        this.rideStatus = rideStatus;
+    public int getId() {
+        return id;
     }
 
-
-
-    public void rideAssignment(Driver driver , Customer customer , String pickup , String destination)
-    {
-        driver.statusAvailable=false;
-
-        //sends to both that ride has been assigned
-
+    public Customer getCustomer() {
+        return customer;
     }
 
-    public ArrayList<Driver> availableDrivers(ArrayList<Driver>drivers)
-    {
-        ArrayList<Driver> availableDrivers = new ArrayList<>();
-        for(Driver driver : drivers)
-        {
-            if(driver.statusAvailable)
-            {
-                availableDrivers.add(driver);
-            }
-        }
-
-        return availableDrivers;
+    public String getPickupLocation() {
+        return pickupLocation;
     }
 
+    public String getDestination() {
+        return destination;
+    }
 
+    public String getStatus() {
+        return status;
+    }
 
-    public void printRideDetails()
-    {
-        System.out.print("Customer Name : " + customer.getUserName());
-        System.out.print("Pickup Location : " + pickup);
-        System.out.print("Destination Location : " + destination);
+    public void setStatus(String status) {
+        this.status = status;
+    }
 
+    public Driver getDriver() {
+        return driver;
+    }
 
+    public void setDriver(Driver driver) {
+        this.driver = driver;
+    }
+
+    public List<RideOffer> getOffers() {
+        return offers;
     }
 }

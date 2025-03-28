@@ -1,41 +1,31 @@
-public class User
-{
-    String username;
-    String password;
-    UserType userType;
+import java.io.Serializable;
 
-    public User(String username , String password){
+public class User implements Serializable {
+    protected int id;
+    protected String username;
+    protected String password;
+    protected String userType;
+
+    public User(int id, String username, String password, String userType) {
+        this.id = id;
         this.username = username;
         this.password = password;
+        this.userType = userType;
+    }
+
+    public int getId() {
+        return id;
     }
 
     public String getUsername() {
         return username;
     }
-}
 
-
-enum UserType {
-    CUSTOMER("customer"),
-    DRIVER("driver");
-
-    private final String value;
-
-    UserType(String value) {
-        this.value = value;
+    public String getPassword() {
+        return password;
     }
 
-    public String getValue() {
-        return value;
+    public String getUserType() {
+        return userType;
     }
-
-    public static UserType fromInt(int value) {
-        return switch (value) {
-            case 1 -> CUSTOMER;
-            case 2 -> DRIVER;
-            default -> throw new IllegalArgumentException("Invalid input! Enter 1 for Customer or 2 for Driver.");
-        };
 }
-}
-
-
