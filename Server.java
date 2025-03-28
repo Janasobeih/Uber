@@ -3,7 +3,7 @@ import java.net.*;
 import java.util.*;
 
 public class Server {
-    public static final int PORT = 5000;
+    public static final int PORT = 5000;  // change to 12345 if needed
 
     // Pre-created admin user.
     public static User admin = new User(0, "admin", "admin", "admin");
@@ -13,10 +13,15 @@ public class Server {
     public static List<Driver> drivers = new ArrayList<>();
     public static List<User> users = new ArrayList<>();
     public static List<Ride> rides = new ArrayList<>();
-    public static Map<Driver, Float> driverRatings = new HashMap<>();
 
-    // Keep track of all client handlers for broadcasting
+    // Aggregated driver ratings record
+    public static Map<Driver, DriverRatingRecord> driverRatings = new HashMap<>();
+
+    // Keep track of all client handlers for notifications.
     public static List<ClientHandler> clientHandlers = new ArrayList<>();
+
+    // Map to track which ride (by ID) a driver is currently locked to.
+    public static Map<Driver, Integer> driverLockedRide = new HashMap<>();
 
     public static void main(String[] args) {
         // Add admin to the users list.
@@ -36,7 +41,7 @@ public class Server {
         }
     }
 
-    // Broadcast a message to all connected drivers.
+    // Notification methods.
     public static void broadcastToDrivers(String message) {
         for (ClientHandler handler : clientHandlers) {
             if (handler.currentUser != null &&
@@ -46,7 +51,6 @@ public class Server {
         }
     }
 
-    // Broadcast a message to a specific customer (if connected).
     public static void notifyCustomer(String username, String message) {
         for (ClientHandler handler : clientHandlers) {
             if (handler.currentUser != null &&
@@ -62,7 +66,6 @@ public class Server {
         private Socket socket;
         private BufferedReader in;
         private PrintWriter out;
-        // Package-private for broadcasting purposes.
         User currentUser;
 
         public ClientHandler(Socket socket) {
@@ -75,13 +78,12 @@ public class Server {
                 out = new PrintWriter(socket.getOutputStream(), true);
                 out.println("Welcome! Please login or register.");
 
-                // Authentication loop
+                // Authentication loop.
                 while (currentUser == null) {
                     out.println("1. Register");
                     out.println("2. Login");
                     out.println("Choose an option:");
                     String choice = in.readLine();
-
                     if ("1".equals(choice)) {
                         registerUser();
                     } else if ("2".equals(choice)) {
@@ -90,10 +92,10 @@ public class Server {
                         out.println("Invalid choice. Please enter 1 or 2.");
                     }
                 }
-                System.out.println("User logged in: " + currentUser.getUsername() + " ("
-                        + currentUser.getUserType() + ") from " + socket.getInetAddress());
+                System.out.println("User logged in: " + currentUser.getUsername() +
+                        " (" + currentUser.getUserType() + ") from " + socket.getInetAddress());
 
-                // Route to the proper menu based on user type.
+                // Route to the appropriate menu.
                 if (currentUser.getUserType().equalsIgnoreCase("admin")) {
                     handleAdminRequests();
                 } else if (currentUser.getUserType().equalsIgnoreCase("customer")) {
@@ -101,7 +103,6 @@ public class Server {
                 } else if (currentUser.getUserType().equalsIgnoreCase("driver")) {
                     handleDriverRequests();
                 }
-
             } catch (IOException e) {
                 System.err.println("Error with client " + socket.getInetAddress() + ": " + e.getMessage());
             } finally {
@@ -160,7 +161,7 @@ public class Server {
             System.out.println("Failed login attempt for username: " + username + " from " + socket.getInetAddress());
         }
 
-        // Admin menu loop.
+        // ----- Admin Menu -----
         private void handleAdminRequests() throws IOException {
             while (true) {
                 out.println("\nAdmin Menu:");
@@ -184,7 +185,36 @@ public class Server {
             }
         }
 
-        // Customer menu loop.
+        private void viewOverallStatus() throws IOException {
+            out.println("\n--- Overall System Status ---");
+            out.println("Total Customers: " + customers.size());
+            out.println("Total Drivers: " + drivers.size());
+            out.println("Total Rides: " + rides.size());
+            if (!rides.isEmpty()) {
+                for (Ride ride : rides) {
+                    String driverInfo = (ride.getDriver() == null) ? "None" : ride.getDriver().getUsername();
+                    out.println("Ride ID: " + ride.getId()
+                            + " | Customer: " + ride.getCustomer().getUsername()
+                            + " | Pickup: " + ride.getPickupLocation()
+                            + " | Destination: " + ride.getDestination()
+                            + " | Status: " + ride.getStatus()
+                            + " | Driver: " + driverInfo);
+                }
+            }
+            out.println("\n--- Driver Ratings ---");
+            if (drivers.isEmpty()) {
+                out.println("No drivers found.");
+            } else {
+                for (Driver d : drivers) {
+                    DriverRatingRecord record = driverRatings.get(d);
+                    double avgRating = (record == null) ? 0.0 : record.getAverageRating();
+                    out.println("Driver: " + d.getUsername() + " | Average Rating: " + avgRating);
+                }
+            }
+            out.println("------------------------------");
+        }
+
+        // ----- Customer Menu -----
         private void handleCustomerRequests() throws IOException {
             while (true) {
                 out.println("\nCustomer Menu:");
@@ -224,7 +254,7 @@ public class Server {
             }
         }
 
-        // Driver menu loop.
+        // ----- Driver Menu -----
         private void handleDriverRequests() throws IOException {
             while (true) {
                 out.println("\nDriver Menu:");
@@ -260,25 +290,6 @@ public class Server {
             }
         }
 
-        private void viewOverallStatus() throws IOException {
-            out.println("\n--- Overall System Status ---");
-            out.println("Total Customers: " + customers.size());
-            out.println("Total Drivers: " + drivers.size());
-            out.println("Total Rides: " + rides.size());
-            if (rides.size() > 0) {
-                for (Ride ride : rides) {
-                    String driverInfo = (ride.getDriver() == null) ? "None" : ride.getDriver().getUsername();
-                    out.println("Ride ID: " + ride.getId()
-                            + " | Customer: " + ride.getCustomer().getUsername()
-                            + " | Pickup: " + ride.getPickupLocation()
-                            + " | Destination: " + ride.getDestination()
-                            + " | Status: " + ride.getStatus()
-                            + " | Driver: " + driverInfo);
-                }
-            }
-            out.println("------------------------------");
-        }
-
         private void requestRide() throws IOException {
             out.println("Enter pickup location:");
             String pickupLocation = in.readLine();
@@ -295,7 +306,7 @@ public class Server {
             System.out.println("Customer " + currentUser.getUsername() + " requested ride ID "
                     + ride.getId() + " from " + pickupLocation + " to " + destination);
 
-            // Broadcast to all drivers
+            // Broadcast to all drivers.
             String broadcastMessage = "New Ride Requested! Ride ID: " + ride.getId()
                     + " | Pickup: " + pickupLocation
                     + " | Destination: " + destination;
@@ -305,7 +316,6 @@ public class Server {
         private void setDriverAvailability() throws IOException {
             out.println("Set availability (yes/no):");
             String response = in.readLine();
-
             if (response.equalsIgnoreCase("yes")) {
                 for (Driver driver : drivers) {
                     if (driver.getUsername().equals(currentUser.getUsername())) {
@@ -337,37 +347,33 @@ public class Server {
             }
         }
 
-        private void updateRideStatus() throws IOException {
-            out.println("Enter ride ID to update:");
-            String rideIdStr = in.readLine();
-            int rideId;
-            try {
-                rideId = Integer.parseInt(rideIdStr);
-            } catch (NumberFormatException e) {
-                out.println("Invalid ride ID format.");
-                return;
-            }
+        private void viewAllPendingRides() throws IOException {
+            boolean found = false;
             for (Ride ride : rides) {
-                // Only allow update if the ride is assigned to this driver.
-                if (ride.getId() == rideId) {
-                    if (ride.getDriver() == null || !ride.getDriver().getUsername().equals(currentUser.getUsername())) {
-                        out.println("You are not assigned to this ride.");
-                        return;
-                    }
-                    out.println("Enter new status (In Progress/Completed):");
-                    String newStatus = in.readLine();
-                    ride.setStatus(newStatus);
-                    out.println("Ride status updated to: " + newStatus);
-                    System.out.println("Driver " + currentUser.getUsername()
-                            + " updated ride ID " + rideId + " to " + newStatus);
-                    return;
+                if (ride.getStatus().equalsIgnoreCase("Pending")) {
+                    out.println("Ride ID: " + ride.getId()
+                            + " | Customer: " + ride.getCustomer().getUsername()
+                            + " | Pickup: " + ride.getPickupLocation()
+                            + " | Destination: " + ride.getDestination()
+                            + " | Status: " + ride.getStatus());
+                    found = true;
                 }
             }
-            out.println("Ride not found.");
+            if (!found) {
+                out.println("No pending rides at the moment.");
+            }
         }
 
-        // New method: Allows a driver to offer a fare for a pending ride.
+        // ----- Driver: Offer Fare -----
         private void offerFare() throws IOException {
+            Driver thisDriver = (Driver) currentUser;
+            // Check if this driver is already locked to a ride.
+            if (Server.driverLockedRide.containsKey(thisDriver)) {
+                int lockedRideId = Server.driverLockedRide.get(thisDriver);
+                out.println("You are already offering a fare for ride ID " + lockedRideId + ". Please wait until it is resolved.");
+                return;
+            }
+
             out.println("Enter ride ID to offer a fare for:");
             String rideIdStr = in.readLine();
             int rideId;
@@ -402,17 +408,20 @@ public class Server {
                 return;
             }
             // Create a new offer.
-            RideOffer offer = new RideOffer((Driver) currentUser, fare);
+            RideOffer offer = new RideOffer(thisDriver, fare);
             targetRide.getOffers().add(offer);
             out.println("Your fare offer of $" + fare + " for ride ID " + targetRide.getId() + " has been submitted.");
-            System.out.println("Driver " + currentUser.getUsername() + " offered $" + fare + " for ride ID " + targetRide.getId());
+            System.out.println("Driver " + thisDriver.getUsername() + " offered $" + fare + " for ride ID " + targetRide.getId());
 
-            // Notify the customer if they are connected.
+            // Lock this driver to this ride.
+            Server.driverLockedRide.put(thisDriver, rideId);
+
+            // Notify the customer.
             notifyCustomer(targetRide.getCustomer().getUsername(),
-                    "Driver " + currentUser.getUsername() + " has offered $" + fare + " for your ride (ID " + targetRide.getId() + ").");
+                    "Driver " + thisDriver.getUsername() + " has offered $" + fare + " for your ride (ID " + targetRide.getId() + ").");
         }
 
-        // New method: Allows a customer to view fare offers for one of their rides.
+        // ----- Customer: View Offered Fares -----
         private void viewOfferedFares() throws IOException {
             out.println("Enter your ride ID to view offers:");
             String rideIdStr = in.readLine();
@@ -423,7 +432,6 @@ public class Server {
                 out.println("Invalid ride ID format.");
                 return;
             }
-            // Find the ride.
             Ride targetRide = null;
             for (Ride ride : rides) {
                 if (ride.getId() == rideId && ride.getCustomer().getUsername().equals(currentUser.getUsername())) {
@@ -444,6 +452,8 @@ public class Server {
                 out.println("Driver: " + offer.getDriver().getUsername() + " | Fare: $" + offer.getFare());
             }
         }
+
+        // ----- Customer: Accept an Offer -----
         private void acceptOffer() throws IOException {
             out.println("Enter your ride ID for which you want to accept an offer:");
             String rideIdStr = in.readLine();
@@ -476,7 +486,6 @@ public class Server {
             }
             out.println("Enter the username of the driver whose offer you want to accept:");
             String driverUsername = in.readLine();
-            // Find the matching offer.
             RideOffer acceptedOffer = null;
             for (RideOffer offer : targetRide.getOffers()) {
                 if (offer.getDriver().getUsername().equals(driverUsername)) {
@@ -488,7 +497,7 @@ public class Server {
                 out.println("Offer from driver " + driverUsername + " not found.");
                 return;
             }
-            // Accept the offer: assign the ride to this driver and update status.
+            // Accept the offer.
             targetRide.setDriver(acceptedOffer.getDriver());
             targetRide.setStatus("Accepted");
             out.println("You have accepted the offer from driver " + driverUsername + " for ride ID " + targetRide.getId() + ".");
@@ -502,9 +511,10 @@ public class Server {
                     handler.out.println("Your fare offer for ride ID " + targetRide.getId() + " has been accepted by the customer.");
                 }
             }
-            // Notify all other drivers who offered fare for this ride.
+            // Free all other drivers who offered for this ride.
             for (RideOffer offer : targetRide.getOffers()) {
                 if (!offer.getDriver().getUsername().equals(driverUsername)) {
+                    Server.driverLockedRide.remove(offer.getDriver());
                     for (ClientHandler handler : clientHandlers) {
                         if (handler.currentUser != null &&
                                 handler.currentUser.getUserType().equalsIgnoreCase("Driver") &&
@@ -514,11 +524,11 @@ public class Server {
                     }
                 }
             }
-            // Optionally clear all offers since the ride is now assigned.
+            // Clear offers.
             targetRide.getOffers().clear();
         }
 
-        // Modified rateDriver remains as before.
+        // ----- Customer: Rate Driver -----
         private void rateDriver() throws IOException {
             out.println("Enter driver username to rate:");
             String driverUsername = in.readLine();
@@ -549,30 +559,55 @@ public class Server {
             }
             for (Driver driver : drivers) {
                 if (driver.getUsername().equals(driverUsername)) {
-                    driverRatings.put(driver, rating);
-                    out.println("Driver " + driverUsername + " rated " + rating + " stars.");
-                    System.out.println("Customer " + currentUser.getUsername() + " rated driver " + driverUsername + " with " + rating + " stars.");
+                    // Retrieve or create the rating record.
+                    DriverRatingRecord record = driverRatings.get(driver);
+                    if (record == null) {
+                        record = new DriverRatingRecord();
+                        driverRatings.put(driver, record);
+                    }
+                    record.addRating(rating);
+                    double avg = record.getAverageRating();
+                    out.println("Driver " + driverUsername + " now has an average rating of " + avg + " stars.");
+                    System.out.println("Customer " + currentUser.getUsername() +
+                            " rated driver " + driverUsername + " with " + rating +
+                            " stars. New average: " + avg);
                     return;
                 }
             }
             out.println("Driver not found.");
         }
-
-        private void viewAllPendingRides() throws IOException {
-            boolean found = false;
+        private void updateRideStatus() throws IOException {
+            out.println("Enter ride ID to update:");
+            String rideIdStr = in.readLine();
+            int rideId;
+            try {
+                rideId = Integer.parseInt(rideIdStr);
+            } catch (NumberFormatException e) {
+                out.println("Invalid ride ID format.");
+                return;
+            }
             for (Ride ride : rides) {
-                if (ride.getStatus().equalsIgnoreCase("Pending")) {
-                    out.println("Ride ID: " + ride.getId()
-                            + " | Customer: " + ride.getCustomer().getUsername()
-                            + " | Pickup: " + ride.getPickupLocation()
-                            + " | Destination: " + ride.getDestination()
-                            + " | Status: " + ride.getStatus());
-                    found = true;
+                // Only allow update if the ride is assigned to this driver.
+                if (ride.getId() == rideId) {
+                    if (ride.getDriver() == null || !ride.getDriver().getUsername().equals(currentUser.getUsername())) {
+                        out.println("You are not assigned to this ride.");
+                        return;
+                    }
+                    out.println("Enter new status (In Progress/Completed):");
+                    String newStatus = in.readLine();
+                    ride.setStatus(newStatus);
+                    out.println("Ride status updated to: " + newStatus);
+                    System.out.println("Driver " + currentUser.getUsername()
+                            + " updated ride ID " + rideId + " to " + newStatus);
+                    // If the ride is completed, free this driver.
+                    if (newStatus.equalsIgnoreCase("Completed")) {
+                        Server.driverLockedRide.remove((Driver) currentUser);
+                    }
+                    return;
                 }
             }
-            if (!found) {
-                out.println("No pending rides at the moment.");
-            }
+            out.println("Ride not found.");
         }
+
     }
 }
