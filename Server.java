@@ -41,6 +41,41 @@ public class Server {
         }
     }
 
+// Checks if a customer is in a locked ride or not
+    public static boolean isCustomerInLockedRide(String username) {
+        // Iterate through each locked ride entry in the map.
+        for (Map.Entry<Driver, Integer> entry : driverLockedRide.entrySet()) {
+            int rideId = entry.getValue();
+            // Find the ride with this rideId from the rides list.
+            for (Ride ride : rides) {
+                if (ride.getId() == rideId && ride.getCustomer().getUsername().equals(username)) {
+                    return true; // Found a locked ride for the customer.
+                }
+            }
+        }
+        return false; // No locked ride found for this customer.
+    }
+
+// Checks if there are any available drivers
+    public static boolean areAllDriversLocked(List<Driver> drivers, Map<Driver, Integer> lockedDriversMap) {
+        for (Driver driver : drivers) {
+            if (lockedDriversMap.getOrDefault(driver, 0) == 0) {
+                return false; // Found an unlocked driver
+            }
+        }
+        return true; // All drivers are locked
+    }
+// Checks if a certain driver is locked or not in order to disconnect
+    public static boolean isDriverLocked(String username, Map<Driver, Integer> lockedDriversMap) {
+        for (Driver driver : lockedDriversMap.keySet()) {
+            if (driver.getUsername().equals(username) && lockedDriversMap.get(driver) == 1) {
+                return true; // Driver is found and locked
+            }
+        }
+        return false; // Driver not found or not locked
+    }
+
+
     // Notification methods.
     public static void broadcastToDrivers(String message) {
         for (ClientHandler handler : clientHandlers) {
@@ -226,10 +261,22 @@ public class Server {
                 out.println("6. Disconnect");
                 out.println("Enter your choice:");
                 String choice = in.readLine();
-                if (choice == null || choice.equals("6")) {
-                    out.println("Disconnecting...");
-                    System.out.println("Customer " + currentUser.getUsername() + " disconnected.");
-                    break;
+                if (choice == null || choice.equals("6"))
+                {
+                    boolean isCustomerInLockedRide=isCustomerInLockedRide(currentUser.getUsername());
+                    if(!isCustomerInLockedRide)
+                    {
+                        out.println("Disconnecting...");
+                        System.out.println("Customer " + currentUser.getUsername() + " disconnected.");
+                        break;
+                    }
+                    else
+                    {
+                        out.println("Couldn't disconnect as you're in ride ");
+                        System.out.println("Customer " + currentUser.getUsername() + " couldn't disconnect as the customer is in a locked ride.");
+                        continue;
+                    }
+
                 }
                 switch (choice) {
                     case "1":
@@ -265,11 +312,26 @@ public class Server {
                 out.println("5. Disconnect");
                 out.println("Enter your choice:");
                 String choice = in.readLine();
-                if (choice == null || choice.equals("5")) {
-                    out.println("Disconnecting...");
-                    System.out.println("Driver " + currentUser.getUsername() + " disconnected.");
-                    break;
+                if (choice == null || choice.equals("5"))
+                {
+                    // Checks if the driver is in a ride or not before disconnecting
+                    boolean isDriverLocked = isDriverLocked(currentUser.getUsername(),driverLockedRide);
+
+                    if(!isDriverLocked)
+                    {
+                        out.println("Disconnecting...");
+                        System.out.println("Driver " + currentUser.getUsername() + " disconnected.");
+                        break;
+                    }
+
+                   else
+                   {
+                        out.println("Couldn't disconnect as you're currently in a ride");
+                        System.out.println("Driver " + currentUser.getUsername() + " couldn't disconnect as the driver is in a ride.");
+                        continue;
+                    }
                 }
+
                 switch (choice) {
                     case "1":
                         setDriverAvailability();
@@ -301,16 +363,39 @@ public class Server {
             Ride ride = new Ride(customer, pickupLocation, destination, "Pending");
             rides.add(ride);
 
+
             out.println("Ride request submitted. Ride ID: " + ride.getId()
                     + " from " + pickupLocation + " to " + destination);
             System.out.println("Customer " + currentUser.getUsername() + " requested ride ID "
                     + ride.getId() + " from " + pickupLocation + " to " + destination);
 
-            // Broadcast to all drivers.
-            String broadcastMessage = "New Ride Requested! Ride ID: " + ride.getId()
-                    + " | Pickup: " + pickupLocation
-                    + " | Destination: " + destination;
-            broadcastToDrivers(broadcastMessage);
+            //Checks if there are drivers that are not currently in a ride (available drivers)
+            boolean areAllDriversLocked= areAllDriversLocked( drivers, driverLockedRide);
+
+            //Check is there registered drivers to accept the request
+            if (drivers.isEmpty())
+            {
+                out.println("There aren't any registered drivers yet , your request will be sent to them once available");
+            }
+
+            else if(!areAllDriversLocked)
+            {
+                // Broadcast to all available drivers.
+                String broadcastMessage = "New Ride Requested! Ride ID: " + ride.getId()
+                        + " | Pickup: " + pickupLocation
+                        + " | Destination: " + destination;
+
+                //Notifies the drivers with the ride
+                broadcastToDrivers(broadcastMessage);
+            }
+
+
+            // There are drivers but they're all in rides
+            else
+            {
+                out.println("All drivers are currently working , your request will be sent to them once available ");
+            }
+
         }
 
         private void setDriverAvailability() throws IOException {
@@ -599,6 +684,12 @@ public class Server {
                     out.println("Ride status updated to: " + newStatus);
                     System.out.println("Driver " + currentUser.getUsername()
                             + " updated ride ID " + rideId + " to " + newStatus);
+
+                    // Notify the customer about updating the ride.
+                    notifyCustomer(ride.getCustomer().getUsername(),
+                            "Driver " + currentUser.getUsername() + " updated ride ID " + rideId+ " to "+ newStatus + ".");
+
+
                     // If the ride is completed, free this driver.
                     if (newStatus.equalsIgnoreCase("Completed")) {
                         Server.driverLockedRide.remove((Driver) currentUser);
