@@ -3,7 +3,7 @@ import java.net.*;
 import java.util.*;
 
 public class Server {
-    public static final int PORT = 5000;  // change to 12345 if needed
+    public static final int PORT = 5000;  
 
     // Pre-created admin user.
     public static User admin = new User(0, "admin", "admin", "admin");
@@ -14,17 +14,16 @@ public class Server {
     public static List<User> users = new ArrayList<>();
     public static List<Ride> rides = new ArrayList<>();
 
-    // Aggregated driver ratings record
+    // Driver ratings record
     public static Map<Driver, DriverRatingRecord> driverRatings = new HashMap<>();
 
-    // Keep track of all client handlers for notifications.
     public static List<ClientHandler> clientHandlers = new ArrayList<>();
 
     // Map to track which ride (by ID) a driver is currently locked to.
     public static Map<Driver, Integer> driverLockedRide = new HashMap<>();
 
     public static void main(String[] args) {
-        // Add admin to the users list.
+        // Adds the admin to the users list.
         users.add(admin);
 
         try (ServerSocket serverSocket = new ServerSocket(PORT)) {
@@ -76,7 +75,7 @@ public class Server {
     }
 
 
-    // Notification methods.
+    // Notification methods to drivers.
     public static void broadcastToDrivers(String message) {
         for (ClientHandler handler : clientHandlers) {
             if (handler.currentUser != null &&
@@ -130,7 +129,7 @@ public class Server {
                 System.out.println("User logged in: " + currentUser.getUsername() +
                         " (" + currentUser.getUserType() + ") from " + socket.getInetAddress());
 
-                // Route to the appropriate menu.
+                // Route to the appropriate menu based on the type of user.
                 if (currentUser.getUserType().equalsIgnoreCase("admin")) {
                     handleAdminRequests();
                 } else if (currentUser.getUserType().equalsIgnoreCase("customer")) {
@@ -196,7 +195,7 @@ public class Server {
             System.out.println("Failed login attempt for username: " + username + " from " + socket.getInetAddress());
         }
 
-        // ----- Admin Menu -----
+        //Admin Menu
         private void handleAdminRequests() throws IOException {
             while (true) {
                 out.println("\nAdmin Menu:");
@@ -249,7 +248,7 @@ public class Server {
             out.println("------------------------------");
         }
 
-        // ----- Customer Menu -----
+        // Customer Menu
         private void handleCustomerRequests() throws IOException {
             while (true) {
                 out.println("\nCustomer Menu:");
@@ -301,7 +300,7 @@ public class Server {
             }
         }
 
-        // ----- Driver Menu -----
+        // Driver Menu
         private void handleDriverRequests() throws IOException {
             while (true) {
                 out.println("\nDriver Menu:");
@@ -382,7 +381,7 @@ public class Server {
                 out.println("All drivers are currently busy; your request is queued until a driver is free.");
             }
 
-            // ---------------- WAITING STATE FOR OFFERS ----------------
+            // Waiting state for offers
             out.println("You are now waiting for driver offers on ride ID " + ride.getId() + ".");
             while (ride.getStatus().equalsIgnoreCase("Pending")) {
                 if (!ride.getOffers().isEmpty()) {
@@ -428,7 +427,7 @@ public class Server {
                                     }
                                 }
                             }
-                            // Clear all offers
+                            // Clear all of the offers
                             ride.getOffers().clear();
 
                             // We exit the waiting loop (ride is accepted).
@@ -447,12 +446,12 @@ public class Server {
                             break;
                     }
                 } else {
-                    // No offers yet
+                  
                     out.println("No driver offers yet. Waiting...");
                     try {
                         Thread.sleep(3000);
                     } catch (InterruptedException e) {
-                        // ignore
+                        // do nothing
                     }
                 }
             }
@@ -516,7 +515,7 @@ public class Server {
             }
         }
 
-        // ----- Driver: Offer Fare -----
+        // Driver Offer fare 
         private void offerFare() throws IOException {
             Driver thisDriver = (Driver) currentUser;
 
@@ -578,7 +577,7 @@ public class Server {
             notifyCustomer(targetRide.getCustomer().getUsername(),
                     "Driver " + thisDriver.getUsername() + " has offered $" + fare + " for your ride (ID " + targetRide.getId() + ").");
 
-            // ---------------- DRIVER WAITING STATE ----------------
+            // Driver waiting state 
             while (true) {
                 // If the ride is accepted, notify and keep the driver locked.
                 if (targetRide.getStatus().equalsIgnoreCase("Accepted")) {
@@ -610,7 +609,7 @@ public class Server {
                 }
             }
         }
-        // ----- Customer: View Offered Fares -----
+        //  View Offered Fares for customer
         private void viewOfferedFares() throws IOException {
             out.println("Enter your ride ID to view offers:");
             String rideIdStr = in.readLine();
@@ -642,7 +641,7 @@ public class Server {
             }
         }
 
-        // ----- Customer: Accept an Offer -----
+        // Accept an offer for customer
         private void acceptOffer() throws IOException {
             out.println("Enter your ride ID for which you want to accept an offer:");
             String rideIdStr = in.readLine();
@@ -717,7 +716,7 @@ public class Server {
             targetRide.getOffers().clear();
         }
 
-        // ----- Customer: Rate Driver -----
+        // Rate Driver for customer
         private void rateDriver() throws IOException {
             out.println("Enter driver username to rate:");
             String driverUsername = in.readLine();
