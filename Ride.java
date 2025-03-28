@@ -7,8 +7,8 @@ public class Ride {
     private String pickupLocation;
     private String destination;
     private String status;
-    private Driver driver;  // To store the accepted driver (if any)
-    private List<RideOffer> offers = new ArrayList<>(); // New list for fare offers
+    private Driver driver;  // The accepted driver (if any)
+    private List<RideOffer> offers = new ArrayList<>(); // List of fare offers
 
     public Ride(Customer customer, String pickupLocation, String destination, String status) {
         this.id = counter++;
